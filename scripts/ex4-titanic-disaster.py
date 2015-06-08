@@ -1,14 +1,15 @@
 # Naive Bayes classifier as a Bayesian network
 
 import numpy as np
-from pomegranate import *
 import pandas as pd
+from pomegranate import *
 
 # Passengers on the Titanic either survive or perish
 passenger = DiscreteDistribution( { 'survive': 0.5, 'perish': 0.5 } )
 
-# Smoothen and return survival probability
-p_survived = lambda list_x: (list_x[(list_x.Survived == 1)].count() + 1 ) / (list_x.count() + 2)
+# Smoothen and return survival probability (Laplace)
+def p_survived(list_x):
+    return (list_x[(list_x.Survived == 1)].count() + 1 ) / (list_x.count() + 2)
 
 train_data = pd.read_csv('../data/titanic/train.csv', header=0)
 
@@ -25,15 +26,20 @@ gender = ConditionalProbabilityTable(
              [ 'perish', 'male',    1 - p_gen_male ],
 	         [ 'perish', 'female',  1 - p_gen_female]], [passenger] )
 
+
 tclass_1 = train_data[train_data.Pclass == 1]
 tclass_2 = train_data[train_data.Pclass == 2]
 tclass_3 = train_data[train_data.Pclass == 3]
 
 p_tclass_1 = p_survived(tclass_1)['Pclass']
-p_tclass_2 = p_survived(tclass_1)['Pclass']
-p_tclass_3 = p_survived(tclass_1)['Pclass']
+p_tclass_2 = p_survived(tclass_2)['Pclass']
+p_tclass_3 = p_survived(tclass_3)['Pclass']
 
-# Class of travel, given survival data
+print p_tclass_1, p_tclass_2, p_tclass_3
+
+train_data.Pclass.median() #Median is third class, So use third class for NaN
+
+# Class, given survival data
 tclass = ConditionalProbabilityTable(
             [[ 'survive', 'first',  p_tclass_1 ],
              [ 'survive', 'second', p_tclass_2 ],
@@ -54,6 +60,9 @@ p_age_3 = p_survived(age_3)['Age']
 p_age_4 = p_survived(age_4)['Age']
 p_age_5 = p_survived(age_5)['Age']
 
+train_data.Age.median() #is between 20 and 40, so use age_2 for NaN
+
+# Age, given survival data
 age = ConditionalProbabilityTable(
             [[ 'survive', 'age_1',   p_age_1 ],
              [ 'survive', 'age_2', p_age_2 ],
@@ -67,43 +76,83 @@ age = ConditionalProbabilityTable(
 	         [ 'perish', 'age_5',  1 - p_age_5]], [passenger] )
 
 
-# State objects hold both the distribution, and a high level name.
 s1 = State( passenger, name = "passenger" )
 s2 = State( gender, name = "gender" )
 s3 = State( tclass, name = "class" )
 s4 = State( age, name = "age" )
 
-# Create the Bayesian network object with a useful name
 network = BayesianNetwork( "Titanic Disaster" )
 
-# Add the three nodes to the network
 network.add_nodes( [ s1, s2, s3, s4 ] )
 
-# Add transitions which represent conditional depesndencies, where the second
-# node is conditionally dependent on the first node (Monty is dependent on both guest and prize)
 network.add_edge( s1, s2 )
 network.add_edge( s1, s3 )
 network.add_edge( s1, s4 )
+
 network.bake()
 
-# The first observation is that the interpreter is not working
-#first_observation = { 'interpreter' : 'nw' }
+def find_age(age):
+    if age < 20:
+        return 'age_1'
+    elif age >= 20 and age < 40:
+        return 'age_2'
+    elif age >= 40 and age < 60:
+        return 'age_3'
+    elif age >= 60 and age < 80:
+        return 'age_4'
+    elif age >= 80:
+        return 'age_5'
+    else:
+        return 'age_2'
 
-# beliefs will be an array of posterior distributions or clamped values for each state, indexed corresponding to the order
-# in self.states.
-#beliefs = network.forward_backward( first_observation )
+def find_class(pclass):
+    if pclass == 1:
+        return 'first'
+    elif pclass == 2:
+        return 'second'
+    elif pclass == 3:
+        return 'third'
+    else:
+        return 'third'
 
-# Convert the beliefs into a more readable format
-#beliefs = map( str, beliefs )
+# Check with 30% of the training data
+train_test_data = pd.read_csv('../data/titanic/train_verify.csv', header=0)
 
-# Print out the state name and belief for each state on individual lines
-# What is the probability of the code being buggy ?
-#print "\n".join( "{}\t{}".format( state.name, belief ) for state, belief in zip( network.states, beliefs ) )
+train_test_res = []
+for row in train_test_data.values:
+    observations = {'gender': row[4], 'age': find_age(row[5]), 'class': find_class(row[2]) }
+    beliefs = network.forward_backward( observations )
+    res = beliefs[0].parameters[0]
+    if res['survive'] > res['perish']:
+        train_test_res.append(1)
+    else:
+        train_test_res.append(0)
 
+prediction = zip(train_test_data.Survived, train_test_res)
 
-# Repeat above steps for second observation
-# Now what is the probability of the code being buggy ?
-#second_observation = { 'interpreter' : 'nw', 'cursor' : 'w' }
-#beliefs = network.forward_backward( second_observation )
-#beliefs = map( str, beliefs )
-#print "\n".join( "{}\t{}".format( state.name, belief ) for state, belief in zip( network.states, beliefs ) )
+match_count = 0
+for row in prediction:
+    if row[0] == row[1]:
+        match_count += 1
+
+# Should actually do the false positive thing, but right now just checking the raw match. 
+print "Ratio of correctly predicted rows to total rows for 30% training data", match_count / float(len(train_test_data.PassengerId))
+
+# Load the test data and generate our awesome predictions!
+test_data = pd.read_csv('../data/titanic/test.csv', header=0)
+
+test_res = []
+for row in test_data.values:
+    observations = {'gender': row[3], 'age': find_age(row[4]), 'class': find_class(row[1]) }
+    beliefs = network.forward_backward( observations )
+    res = beliefs[0].parameters[0]
+    if res['survive'] > res['perish']:
+        test_res.append(1)
+    else:
+        test_res.append(0)
+
+d = {'PassengerId':test_data.PassengerId, 'Survived': test_res}
+df = pd.DataFrame(data = d)
+
+df.to_csv('../data/titanic/output_final.csv', index=False)
+print 'Final output written to output_final.csv'

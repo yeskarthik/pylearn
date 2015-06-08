@@ -1,0 +1,81 @@
+{
+    "V": ["age", "cat"],
+    "E": [
+        ["cat", "age"]],
+    "Vdata": {
+        "age": {
+            "ord": 4,
+            "numoutcomes": 5,
+            "vals": ["age_1", "age_2", "age_3", "age_4", "age_5"],
+            "parents": ["cat"],
+            "children": None,
+            "cprob": {
+                "['survive']": [.2, .2, .2, .2, .2],
+                "['perish']": [.2, .2, .2, .2, .2],                
+            }
+        },
+
+     
+
+        "cat": {
+            "ord": 2,
+            "numoutcomes": 1,
+            "vals": ["survive", "perish"],
+            "parents": None,
+            "children": ["age"],
+            "cprob": [.5, .5]
+                
+        }
+    }
+}
+
+
+
+{
+    "V": ["cat", "age", "sex", "class"],
+    "E": [["age", "cat"],
+            ["sex", "cat"],
+            ["class", "cat"]],
+    "Vdata": {
+         "age": {
+            "numoutcomes": 5,
+            "vals": ["age_1", "age_2", "age_3", "age_4", "age_5"],
+            "parents": ["cat"],
+            "children": None,
+            "cprob": {
+                "['survive']": [0.2, 0.2, 0.2, 0.2, 0.2],
+                "['perish']": [0.2, 0.2, 0.2, 0.2, 0.2]
+              }
+         },
+ 
+        "sex": {
+            "numoutcomes": 2,
+            "vals": ["male", "female"],
+            "parents": ["cat"],
+            "children": None,
+            "cprob": {
+                "['survive']": [0.5, 0.5],
+                "['perish']": [0.5, 0.5]
+              }
+         },
+
+         "class": {
+            "numoutcomes": 3,
+            "vals": ["one", "two", "three"],
+            "parents": ["cat"],
+            "children": None,
+            "cprob": {
+                "['survive']": [0.5, 0.5],
+                "['perish']": [0.5, 0.5]
+              }
+         },
+
+        "cat": {
+            "numoutcomes": 2,
+            "vals": ["survive", "perish"],
+            "parents": None,
+            "children": ["name", "age", "sex", "class"],
+            "cprob": [0.5, 0.5]
+         }
+      }
+}
